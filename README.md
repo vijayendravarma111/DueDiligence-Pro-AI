@@ -8,7 +8,7 @@ The platform solves the common **RAG context leakage problem** (cross-document c
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 ```mermaid
 graph TD
@@ -37,7 +37,7 @@ graph TD
 
 ---
 
-## 🌟 Core Features
+##  Core Features
 
 - **Document-Specific Q&A Isolation**: Vector database indexes are filtered strictly by `document_id` preventing older indexing inputs from contaminating newer analyses.
 - **Cognitive Risk Assessment**: Automatically evaluates contracts across 5 risk dimensions (Financial, Operational, Market, Governance, Legal) with consultant mitigation steps.
@@ -49,7 +49,7 @@ graph TD
 
 ---
 
-## 📁 Directory Structure
+##  Directory Structure
 
 ```
 due-diligence-pro-ai/
@@ -113,7 +113,7 @@ due-diligence-pro-ai/
 
 ---
 
-## ⚙️ Environment Variables
+##  Environment Variables
 
 Configure these settings inside the root `.env` file prior to starting the containers:
 
@@ -132,7 +132,7 @@ CHROMA_PORT=8000
 
 ---
 
-## 🚀 Installation & Docker Setup
+##  Installation & Docker Setup
 
 Launch the entire stack (relational schema, vector db, FastAPI backend, React web portal) with one command:
 
@@ -148,7 +148,7 @@ Access the services at:
 
 ---
 
-## ☁️ Railway Deployment
+##  Railway Deployment
 
 DueDiligence Pro AI is ready to deploy directly to Railway:
 1. Link your GitHub repository to Railway.
@@ -158,7 +158,7 @@ DueDiligence Pro AI is ready to deploy directly to Railway:
 
 ---
 
-## 💼 Resume & Recruiter Summary
+##  Resume & Recruiter Summary
 
 **DueDiligence Pro AI — Principal Full-Stack Engineer / AI Architect**
 - Architected a multi-tenant investment analysis SaaS that processes complex PDF/DOCX documents and evaluates them with structured LLM scoring.
