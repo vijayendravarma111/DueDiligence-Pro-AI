@@ -1,8 +1,19 @@
 import axios from 'axios';
 
+const getBaseURL = () => {
+  const url = import.meta.env.VITE_API_URL as string;
+  if (!url) return '/api/v1';
+  // If the user included /api/v1 in VITE_API_URL, use it directly
+  if (url.endsWith('/api/v1') || url.endsWith('/api/v1/')) {
+    return url;
+  }
+  // Otherwise, automatically append /api/v1 suffix to the domain
+  return `${url.replace(/\/$/, '')}/api/v1`;
+};
+
 // Create central API client
 const api = axios.create({
-  baseURL: (import.meta.env.VITE_API_URL as string) || '/api/v1',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },
