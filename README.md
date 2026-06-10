@@ -31,7 +31,7 @@ graph TD
     FE -->|Axios REST Queries| AUTH
     AUTH -->|DB Queries| DB_ROUTER
     DB_ROUTER -->|SQLAlchemy| MYSQL
-    AI_ROUTER -->|Dynamic where={'document_id': id}| CHROMA
+    AI_ROUTER -->|"Dynamic where={'document_id': id}"| CHROMA
     AI_ROUTER -->|Context Prompting| GEMINI
 ```
 
