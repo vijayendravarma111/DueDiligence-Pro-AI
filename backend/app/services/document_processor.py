@@ -18,21 +18,24 @@ if settings.GEMINI_API_KEY:
 def extract_text_from_pdf(file_path: str) -> str:
     text = ""
     try:
-        with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-    except Exception as e:
-        logger.error(f"Error extracting PDF text: {e}")
-        # Try fallback using PyPDF
+        # Use pypdf as the primary, low-memory PDF extractor
         from pypdf import PdfReader
+        logger.info(f"Extracting PDF text using low-memory pypdf from {file_path}")
+        reader = PdfReader(file_path)
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+    except Exception as e:
+        logger.error(f"Error extracting PDF text with pypdf: {e}. Trying fallback pdfplumber.")
         try:
-            reader = PdfReader(file_path)
-            for page in reader.pages:
-                text += page.extract_text() or ""
+            with pdfplumber.open(file_path) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
         except Exception as fallback_err:
-            logger.error(f"Fallback PDF extractor also failed: {fallback_err}")
+            logger.error(f"Fallback PDF extractor (pdfplumber) also failed: {fallback_err}")
             raise e
     return text
 

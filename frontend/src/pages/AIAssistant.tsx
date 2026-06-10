@@ -45,6 +45,15 @@ const AIAssistant: React.FC = () => {
       const res = await api.get('/documents/', { params: { company_id: company.id } });
       const completedDocs = res.data.filter((d: any) => d.status === 'completed');
       setDocuments(completedDocs);
+      
+      // Auto-heal state: if selected doc ID is not found, default to first completed or null
+      if (selectedDocId && !completedDocs.some((d: any) => d.id === selectedDocId)) {
+        if (completedDocs.length > 0) {
+          setSelectedDocId(completedDocs[0].id);
+        } else {
+          setSelectedDocId(null);
+        }
+      }
     } catch (e) {
       console.error(e);
       message.error('Error fetching document list.');
