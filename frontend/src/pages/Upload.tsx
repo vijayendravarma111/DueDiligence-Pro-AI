@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Upload as AntUpload, message, Typography, Space, Progress, Button, Alert } from 'antd';
+import { Card, Upload as AntUpload, message, Typography, Space, Progress, Button, Alert, Spin } from 'antd';
 import { InboxOutlined, FilePdfOutlined, FileWordOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { UseApp } from '../App';
@@ -80,8 +80,11 @@ const Upload: React.FC = () => {
     accept: '.pdf,.docx',
     customRequest,
     beforeUpload: (file: any) => {
+      const fileName = file.name.toLowerCase();
       const isPdfOrWord = file.type === 'application/pdf' || 
-                         file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                         file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                         fileName.endsWith('.pdf') ||
+                         fileName.endsWith('.docx');
       if (!isPdfOrWord) {
         message.error('Invalid format. You can only upload PDF or DOCX files.');
         return AntUpload.LIST_IGNORE;
@@ -114,46 +117,48 @@ const Upload: React.FC = () => {
       />
 
       <Card className="glass-panel" style={{ border: 'none' }}>
-        {!success ? (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <Dragger {...draggerProps} disabled={uploading}>
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined style={{ color: '#3B82F6', fontSize: 48 }} />
-              </p>
-              <p className="ant-upload-text" style={{ color: '#E2E8F0', fontWeight: 600, fontSize: 16 }}>
-                Drag & Drop Document Here
-              </p>
-              <p className="ant-upload-hint" style={{ color: '#64748B', padding: '0 24px' }}>
-                Supports PDF and DOCX files up to 15MB. Your data is isolated using strict vector-field segmentation.
-              </p>
-            </Dragger>
+        <Spin spinning={uploading} size="large" tip={progress > 0 ? `Uploading... ${progress}%` : "Initiating secure document upload..."}>
+          {!success ? (
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+              <Dragger {...draggerProps} disabled={uploading}>
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined style={{ color: '#3B82F6', fontSize: 48 }} />
+                </p>
+                <p className="ant-upload-text" style={{ color: '#E2E8F0', fontWeight: 600, fontSize: 16 }}>
+                  Drag & Drop Document Here
+                </p>
+                <p className="ant-upload-hint" style={{ color: '#64748B', padding: '0 24px' }}>
+                  Supports PDF and DOCX files up to 15MB. Your data is isolated using strict vector-field segmentation.
+                </p>
+              </Dragger>
 
-            {uploading && (
-              <div style={{ marginTop: 16 }}>
-                <Text style={{ color: '#94A3B8', display: 'block', marginBottom: 8 }}>
-                  Ingesting and parsing payload... (please wait for completion)
-                </Text>
-                <Progress percent={progress} strokeColor="#3B82F6" trailColor="#1E293B" />
-              </div>
-            )}
-          </Space>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '32px 0' }}>
-            <CheckCircleOutlined style={{ color: '#10B981', fontSize: 64, marginBottom: 16 }} />
-            <Title level={3} style={{ margin: 0 }}>Processing Initialized</Title>
-            <Paragraph style={{ color: '#94A3B8', marginTop: 8, marginBottom: 24 }}>
-              <strong>{uploadedDoc?.file_name}</strong> was ingested. The background worker is currently extracting text, generating vector embeddings, and structuring data fields.
-            </Paragraph>
-            <Space size="middle">
-              <Button type="primary" onClick={() => navigate('/dashboard')}>
-                View Progress Dashboard
-              </Button>
-              <Button type="default" onClick={() => setSuccess(false)}>
-                Ingest Another File
-              </Button>
+              {uploading && (
+                <div style={{ marginTop: 16 }}>
+                  <Text style={{ color: '#94A3B8', display: 'block', marginBottom: 8 }}>
+                    Ingesting and parsing payload... (please wait for completion)
+                  </Text>
+                  <Progress percent={progress} strokeColor="#3B82F6" trailColor="#1E293B" />
+                </div>
+              )}
             </Space>
-          </div>
-        )}
+          ) : (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <CheckCircleOutlined style={{ color: '#10B981', fontSize: 64, marginBottom: 16 }} />
+              <Title level={3} style={{ margin: 0 }}>Processing Initialized</Title>
+              <Paragraph style={{ color: '#94A3B8', marginTop: 8, marginBottom: 24 }}>
+                <strong>{uploadedDoc?.file_name}</strong> was ingested. The background worker is currently extracting text, generating vector embeddings, and structuring data fields.
+              </Paragraph>
+              <Space size="middle">
+                <Button type="primary" onClick={() => navigate('/dashboard')}>
+                  View Progress Dashboard
+                </Button>
+                <Button type="default" onClick={() => setSuccess(false)}>
+                  Ingest Another File
+                </Button>
+              </Space>
+            </div>
+          )}
+        </Spin>
       </Card>
 
       <Card title="Security & Isolation Architecture" style={{ marginTop: 24 }} className="glass-panel">

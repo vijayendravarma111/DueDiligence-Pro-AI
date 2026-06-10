@@ -10,6 +10,40 @@ import {
 } from '@ant-design/icons';
 import { UseApp } from '../App';
 import api from '../api';
+import axios from 'axios';
+
+// Helper to resolve static asset absolute URLs on the backend
+const getMediaURL = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  
+  const baseURL = import.meta.env.VITE_API_URL || '';
+  const cleanBase = baseURL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+  return `${cleanBase}${path}`;
+};
+
+// Helper to download cross-origin reports directly without opening new tabs/windows
+const downloadReport = async (path: string, fileName: string) => {
+  const fullUrl = getMediaURL(path);
+  if (!fullUrl) return;
+  try {
+    message.loading({ content: 'Downloading report file...', key: 'download_report', duration: 0 });
+    const res = await axios.get(fullUrl, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    message.success({ content: 'Download completed successfully.', key: 'download_report', duration: 2 });
+  } catch (err) {
+    console.error(err);
+    message.error({ content: 'Download failed. Opening file in a new tab instead.', key: 'download_report', duration: 3 });
+    window.open(fullUrl, '_blank');
+  }
+};
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -202,8 +236,7 @@ const InvestmentAnalysis: React.FC = () => {
                       <Button
                         type="default"
                         icon={<FilePdfOutlined />}
-                        href={reportFiles.pdf_path}
-                        target="_blank"
+                        onClick={() => downloadReport(reportFiles.pdf_path, `Investment_Report_${selectedDoc?.file_name.replace(/\.[^/.]+$/, "")}.pdf`)}
                       >
                         PDF
                       </Button>
@@ -212,8 +245,7 @@ const InvestmentAnalysis: React.FC = () => {
                       <Button
                         type="default"
                         icon={<FileWordOutlined />}
-                        href={reportFiles.docx_path}
-                        target="_blank"
+                        onClick={() => downloadReport(reportFiles.docx_path, `Investment_Report_${selectedDoc?.file_name.replace(/\.[^/.]+$/, "")}.docx`)}
                       >
                         DOCX
                       </Button>
