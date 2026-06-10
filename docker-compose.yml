@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # Relational Database
+  mysql:
+    image: mysql:8.0
+    container_name: duediligence_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Varma59
+      MYSQL_DATABASE: due_diligence
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pVarma59"]
+      timeout: 10s
+      retries: 5
+
+  # Vector Database for semantic chunks
+  chromadb:
+    image: chromadb/chroma:0.5.0
+    container_name: duediligence_chroma
+    restart: always
+    ports:
+      - "8001:8000" # Mapped to 8001 on host to avoid conflict with FastAPI on 8000
+    volumes:
+      - chroma_data:/chroma/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSISTENT_DIR=/chroma/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # FastAPI Web Application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: duediligence_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://root:Varma59@mysql:3306/due_diligence
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SECRET_KEY=production_recruiter_grade_secret_key_12983712983
+    depends_on:
+      mysql:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    volumes:
+      - backend_uploads:/backend/uploads
+      - backend_reports:/backend/reports
+
+  # React Single Page Application (Served via Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: duediligence_frontend
+    restart: always
+    ports:
+      - "5174:80" # Exposed at 5174 to avoid conflict with standard Vite dev server on 5173
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  chroma_data:
+  backend_uploads:
+  backend_reports:
