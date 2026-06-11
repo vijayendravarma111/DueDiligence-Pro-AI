@@ -160,10 +160,10 @@ DueDiligence Pro AI is ready to deploy directly to Railway:
 
 ##  Resume & Recruiter Summary
 
-**DueDiligence Pro AI — Principal Full-Stack Engineer / AI Architect**
-- Architected a multi-tenant investment analysis SaaS that processes complex PDF/DOCX documents and evaluates them with structured LLM scoring.
-- Implemented a **Segmented RAG (Retrieval-Augmented Generation) Architecture** in ChromaDB to solve context leakage across documents, improving search relevancy and isolation.
-- Integrated **Google Gemini 2.5 Flash** to run automated risk assessments across 5 dimensions, compiling executive buy/sell investment scores using constrained JSON schemas.
-- Engineered dynamic report compilation pipelines yielding executive PDF briefs (ReportLab) and Word document formats (python-docx) for instant user downloads.
-- Built a glassmorphic dashboard in React 19 featuring Ant Design, TypeScript, and Recharts, served via an optimized Nginx proxy network.
-- Configured a cloud-native **Docker Compose** blueprint enabling single-command local orchestration and containerized Railway deployments.
+**DueDiligence Pro AI — AI Engineer / Data Developer (Project Portfolio)**
+- Developed a multi-tenant investment analysis platform that parses PDF/DOCX files and generates structured assessments using LLMs.
+- Implemented a **Segmented RAG (Retrieval-Augmented Generation) Pipeline** in ChromaDB to resolve query contamination across documents, improving search isolation.
+- Integrated the **Google Gemini 2.5 Flash** API to perform automated risk assessments across 5 dimensions, enforcing JSON schema outputs for parsing consistency.
+- Programmed dynamic report generation scripts using ReportLab (PDF) and python-docx (Word) to compile user-downloadable audit summaries on-the-fly.
+- Designed a dark-themed analytics portal in React 19 with Ant Design, TypeScript, and Recharts, using Nginx for local routing and deployment.
+- Configured a multi-container **Docker Compose** setup to orchestrate FastAPI backend, React frontend, MySQL, and ChromaDB services.
