@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 # Create Database tables if they don't exist
 try:
     logger.info("Initializing relational database tables...")
+    # Explicitly import all models to register them with Base.metadata before creation
+    from app.models.models import User, Company, Document, DocumentChunk, ChatHistory, Report
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized successfully.")
     
