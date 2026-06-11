@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects import mysql
 from app.database.session import Base
 
 class User(Base):
@@ -83,7 +84,7 @@ class Report(Base):
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     report_type = Column(String(50), nullable=False) # risk, investment, chat
     title = Column(String(255), nullable=False)
-    content = Column(Text(16777215), nullable=False) # MEDIUMTEXT in MySQL, handles larger reports
+    content = Column(Text().with_variant(mysql.MEDIUMTEXT(), "mysql"), nullable=False) # MEDIUMTEXT in MySQL, standard TEXT in Postgres
     pdf_path = Column(String(512), nullable=True)
     docx_path = Column(String(512), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

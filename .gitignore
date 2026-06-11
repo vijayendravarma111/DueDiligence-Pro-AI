@@ -18,6 +18,7 @@ chroma_db_data/
 .chroma/
 mysql_data/
 chroma_data/
+*.db
 
 # Dependencies
 node_modules/
