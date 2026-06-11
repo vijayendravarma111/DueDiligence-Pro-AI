@@ -17,37 +17,47 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create Database tables if they don't exist
-try:
-    logger.info("Initializing relational database tables...")
-    # Explicitly import all models to register them with Base.metadata before creation
-    from app.models.models import User, Company, Document, DocumentChunk, ChatHistory, Report
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables initialized successfully.")
-    
-    # Seed a default user if none exists
-    from app.database.session import SessionLocal
-    from app.models.models import User
-    from app.core import security
-    
-    db = SessionLocal()
+import time
+db_init_success = False
+for attempt in range(5):
     try:
-        user_count = db.query(User).count()
-        if user_count == 0:
-            logger.info("Database is empty. Seeding default user 'nani@example.com'...")
-            default_user = User(
-                email="nani@example.com",
-                hashed_password=security.get_password_hash("password123"),
-                role="analyst"
-            )
-            db.add(default_user)
-            db.commit()
-            logger.info("Default user 'nani@example.com' seeded successfully (password: 'password123').")
-    except Exception as seed_err:
-        logger.error(f"Failed to seed default user: {seed_err}")
-    finally:
-        db.close()
-except Exception as e:
-    logger.critical(f"Database initialization failed: {e}. Ensure MySQL is running.")
+        logger.info(f"Initializing relational database tables (attempt {attempt + 1}/5)...")
+        # Explicitly import all models to register them with Base.metadata before creation
+        from app.models.models import User, Company, Document, DocumentChunk, ChatHistory, Report
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables initialized successfully.")
+        
+        # Seed a default user if none exists
+        from app.database.session import SessionLocal
+        from app.core import security
+        
+        db = SessionLocal()
+        try:
+            user_count = db.query(User).count()
+            if user_count == 0:
+                logger.info("Database is empty. Seeding default user 'nani@example.com'...")
+                default_user = User(
+                    email="nani@example.com",
+                    hashed_password=security.get_password_hash("password123"),
+                    role="analyst"
+                )
+                db.add(default_user)
+                db.commit()
+                logger.info("Default user 'nani@example.com' seeded successfully (password: 'password123').")
+        except Exception as seed_err:
+            logger.error(f"Failed to seed default user: {seed_err}")
+        finally:
+            db.close()
+            
+        db_init_success = True
+        break
+    except Exception as e:
+        logger.warning(f"Database initialization attempt {attempt + 1} failed: {e}. Retrying in 3 seconds...")
+        if attempt < 4:
+            time.sleep(3)
+
+if not db_init_success:
+    logger.critical("Database initialization failed after 5 attempts. Ensure the database service is running.")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
