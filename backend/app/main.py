@@ -81,9 +81,34 @@ app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", 
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Simple API health check endpoint."""
+    """Simple API health check endpoint with database diagnostics."""
+    db_status = "ok"
+    db_error = None
+    tables_check = {}
+    try:
+        from app.database.session import SessionLocal
+        from sqlalchemy import text
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        
+        # Check tables
+        from app.models.models import User
+        try:
+            user_count = db.query(User).count()
+            tables_check["users"] = f"ok (count: {user_count})"
+        except Exception as tbl_err:
+            tables_check["users"] = f"error: {str(tbl_err)}"
+            
+        db.close()
+    except Exception as e:
+        db_status = "failed"
+        db_error = str(e)
+        
     return {
-        "status": "healthy",
+        "status": "healthy" if db_status == "ok" and not any("error" in str(v) for v in tables_check.values()) else "degraded",
+        "database_connection": db_status,
+        "database_error": db_error,
+        "tables_status": tables_check,
         "app_name": settings.PROJECT_NAME,
         "chroma_host": settings.CHROMA_HOST,
         "gemini_api_key_configured": bool(settings.GEMINI_API_KEY)
