@@ -13,27 +13,27 @@ The platform solves the common **RAG context contamination problem** by employin
 
 ## 📷 Application Showcase
 
-### 📊 Interactive Dashboard & Financial KPIs
+###  Interactive Dashboard & Financial KPIs
 *Track key metrics and monitor company workspace contexts seamlessly.*
 ![Dashboard](./Screenshots/Dashboard.png)
 
-### 📂 Document Ingestion & Vector Indexing
+###  Document Ingestion & Vector Indexing
 *Upload PDF/DOCX contracts and prospectuses with active loading feedback.*
 ![Upload Document](./Screenshots/Upload%20Document.png)
 
-### 🔍 AI Risk Assessment & Mitigation
+###  AI Risk Assessment & Mitigation
 *Analyze legal, financial, and operational risks with recommended mitigations.*
 ![Risk Analysis](./Screenshots/Risk%20Analysis.png)
 
-### 💡 Venture Capital & Private Equity Valuations
+###  Venture Capital & Private Equity Valuations
 *Get automated Buy/Hold recommendations, SWOT analyses, and confidence ratings.*
 ![Investment Analysis](./Screenshots/Investment%20Analysis.png)
 
-### 💬 Document-Isolated AI Assistant Chat
+###  Document-Isolated AI Assistant Chat
 *Ask context-constrained questions about individual files with zero-leakage vector search.*
 ![AI Assistant](./Screenshots/AI%20Assistant.png)
 
-### 📄 Corporate Report Downloads
+###  Corporate Report Downloads
 *Download professional PDF and Word executive briefs compiled on-the-fly.*
 ![Report Module](./Screenshots/Report%20Module.png)
 
@@ -70,7 +70,7 @@ graph TD
 
 ---
 
-## 🚀 Key Machine Learning & Data Engineering Features
+##  Key Machine Learning & Data Engineering Features
 
 - **Segmented RAG (Retrieval-Augmented Generation)**: Prevents historical document contamination by executing metadata-filtered queries (`where={"document_id": active_id}`) in ChromaDB.
 - **Structured LLM Schema Enforcement**: Leverages Google Gemini 2.5 Flash's structured JSON output mode to guarantee deterministic data parsing and consistent API schema responses.
@@ -80,7 +80,7 @@ graph TD
 
 ---
 
-## 📂 Repository Structure
+##  Repository Structure
 
 ```
 due-diligence-pro-ai/
@@ -145,7 +145,7 @@ due-diligence-pro-ai/
 
 ---
 
-## 🛠️ Environment Configuration
+##  Environment Configuration
 
 Configure the root `.env` file prior to starting the containers:
 
@@ -164,7 +164,7 @@ CHROMA_PORT=8000
 
 ---
 
-## 🐳 Quick Start: Docker Compose
+##  Quick Start: Docker Compose
 
 Spin up the entire local container stack (PostgreSQL/MySQL, ChromaDB, FastAPI API, React Web Portal) with one command:
 
@@ -180,7 +180,7 @@ Access the services at:
 
 ---
 
-## 💼 ATS-Friendly Fresher Profile Highlights
+
 
 **Skills & Technologies Demonstrated:**
 * **Programming Languages**: Python, TypeScript, SQL
