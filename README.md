@@ -141,9 +141,3 @@ Once running, access the services at:
 
 ---
 
-## 💼 Skills & Professional Highlights
-
-* **Core Stack**: FastAPI, React 19, TypeScript, PostgreSQL, MySQL, Docker, Docker Compose, Nginx.
-* **AI & RAG Engineering**: RAG Implementation, Semantic Vector Search, Document Chunking, ChromaDB, Google Gemini API, Prompt Engineering.
-* **Database & Hashing**: SQLAlchemy ORM, Database Indexing, JWT Stateless Security, Password Hashing (`bcrypt`).
-* **Cloud & DevOps**: Nginx Reverse Proxy, multi-stage Docker builds, Vercel deployments, Render container pipelines.
