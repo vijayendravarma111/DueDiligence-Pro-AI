@@ -7,7 +7,7 @@
 
 DueDiligence Pro AI is a production-grade, multi-tenant AI application built for venture capital, private equity, and investment banking analysts. It automates qualitative risk auditing, valuation reviews, and document-specific Q&A for complex corporate agreements, financial prospectuses, and pitch decks.
 
-The platform solves the **RAG context leakage problem** (cross-document contamination) by employing a strictly segmented vector search pipeline where query scopes are isolated dynamically to the active document context.
+The platform solves the **RAG context leakage problem** (cross-document contamination) by employing a strictly segmented vector search pipeline where query scopes are isolated dynamically to the user's active document context.
 
 ---
 
@@ -30,27 +30,25 @@ The application implements a decoupled, service-oriented architecture linking a 
 
 ```mermaid
 graph TD
-    subgraph Client [Client Portal - React 19]
-        FE[SPA Interface - Ant Design & Recharts]
+    subgraph Frontend [React SPA Client]
+        UI[User Interface - Ant Design & Recharts]
     end
 
-    subgraph Router [API Middleware - FastAPI]
-        AUTH[JWT Security Gateway]
-        DB_ROUTER[Relational Schema Controller]
-        AI_ROUTER[Gemini & Chroma Index Controller]
+    subgraph Backend [FastAPI Server]
+        API[API Router & Auth Gateway]
+        RAG[RAG & Gemini Controller]
     end
 
-    subgraph Storage [Data & Model Layer]
-        DB[(PostgreSQL / SQLite - Users, Companies, Audit Logs)]
-        CHROMA[(ChromaDB - Isolated Document Vectors)]
-        GEMINI[Google Gemini 2.5 Flash API]
+    subgraph Database [Storage Layer]
+        DB[(PostgreSQL / MySQL)]
+        CHROMA[(ChromaDB Vector Store)]
+        GEMINI[Google Gemini API]
     end
 
-    FE -->|Axios REST Queries| AUTH
-    AUTH -->|DB Queries| DB_ROUTER
-    DB_ROUTER -->|SQLAlchemy| DB
-    AI_ROUTER -->|"Dynamic where={'document_id': id}"| CHROMA
-    AI_ROUTER -->|Context Prompting| GEMINI
+    UI -->|REST API Requests| API
+    API -->|SQLAlchemy ORM| DB
+    RAG -->|Metadata Filtered Search| CHROMA
+    RAG -->|Context Prompting| GEMINI
 ```
 
 ---
@@ -61,7 +59,7 @@ graph TD
 * **Structured LLM Schema Enforcement**: Configures Google Gemini 2.5 Flash using strict JSON schemas to guarantee deterministic data parsing and reliable API responses.
 * **Low-Memory Text Processing Pipeline**: Uses token-safe sliding-window character chunking (1000 characters size, 200 overlap) and streams PDF extractions (`pypdf`) to lower server RAM consumption by 80%.
 * **On-the-Fly Document Generation**: Compiles professional PDF executive summaries using ReportLab (with custom page constraints, tables, and drawn score indicators) and Word documents via `python-docx`.
-* **Zero-Config Resiliency**: Graded database fallbacks (PostgreSQL $\rightarrow$ SQLite) and local heuristic search fallbacks ensure full application functionality even without external API keys or cloud databases.
+* **Zero-Config Resiliency**: Graded database connection retries (PostgreSQL $\rightarrow$ MySQL) and local heuristic search fallbacks ensure full application functionality even without external API keys or cloud databases.
 
 ---
 
@@ -145,7 +143,7 @@ Once running, access the services at:
 
 ## 💼 Skills & Professional Highlights
 
-* **Core Stack**: FastAPI, React 19, TypeScript, PostgreSQL, MySQL, SQLite, Docker, Docker Compose, Nginx.
+* **Core Stack**: FastAPI, React 19, TypeScript, PostgreSQL, MySQL, Docker, Docker Compose, Nginx.
 * **AI & RAG Engineering**: RAG Implementation, Semantic Vector Search, Document Chunking, ChromaDB, Google Gemini API, Prompt Engineering.
 * **Database & Hashing**: SQLAlchemy ORM, Database Indexing, JWT Stateless Security, Password Hashing (`bcrypt`).
 * **Cloud & DevOps**: Nginx Reverse Proxy, multi-stage Docker builds, Vercel deployments, Render container pipelines.
