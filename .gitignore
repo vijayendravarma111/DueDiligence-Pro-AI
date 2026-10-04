@@ -1,44 +1,28 @@
 # Environment variables & secrets
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # Python compiled files
 __pycache__/
 *.py[cod]
-*$py.class
 .pytest_cache/
 venv/
 .venv/
 
-# Local databases & persistent volumes
+# Vector database storage & uploaded files
+chroma_db/
 chroma_db_data/
-.chroma/
-mysql_data/
-chroma_data/
+uploads/
+reports/
+backend/uploads/
+backend/reports/
+backend/chroma_db/
 *.db
 
-# Dependencies
+# Node dependencies & builds
 node_modules/
-jspm_packages/
-web_modules/
-
-# Production builds
 dist/
 build/
-out/
-
-# Ingested uploads and generated reports
-backend/uploads/*
-!backend/uploads/.gitkeep
-backend/reports/*
-!backend/reports/.gitkeep
-backend/app/uploads/*
-!backend/app/uploads/.gitkeep
-backend/app/reports/*
-!backend/app/reports/.gitkeep
 
 # OS generated files
 .DS_Store

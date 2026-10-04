@@ -1,299 +1,225 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Select, Button, Typography, Row, Col, Progress, Space, Divider, Tag, Spin, message } from 'antd';
+import { Card, Select, Typography, Space, Spin, Alert, List, Tag, Row, Col, Progress, message } from 'antd';
 import {
+  FundOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  TrophyOutlined,
   LineChartOutlined,
-  PlayCircleOutlined,
-  FilePdfOutlined,
-  FileWordOutlined,
-  InfoCircleOutlined,
-  PieChartOutlined
+  FileProtectOutlined,
 } from '@ant-design/icons';
-import { UseApp } from '../App';
-import api from '../api';
-import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
+import api from '../services/api';
+import { DocumentItem, InvestmentAnalysis as InvestmentAnalysisType } from '../types';
 
-// Helper to resolve static asset absolute URLs on the backend
-const getMediaURL = (path: string) => {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  
-  const baseURL = import.meta.env.VITE_API_URL || '';
-  const cleanBase = baseURL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-  return `${cleanBase}${path}`;
-};
-
-// Helper to download cross-origin reports directly without opening new tabs/windows
-const downloadReport = async (path: string, fileName: string) => {
-  const fullUrl = getMediaURL(path);
-  if (!fullUrl) return;
-  try {
-    message.loading({ content: 'Downloading report file...', key: 'download_report', duration: 0 });
-    const res = await axios.get(fullUrl, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode?.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    message.success({ content: 'Download completed successfully.', key: 'download_report', duration: 2 });
-  } catch (err) {
-    console.error(err);
-    message.error({ content: 'Download failed. Opening file in a new tab instead.', key: 'download_report', duration: 3 });
-    window.open(fullUrl, '_blank');
-  }
-};
-
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
+const { Option } = Select;
 
 const InvestmentAnalysis: React.FC = () => {
-  const { company, selectedDocId, setSelectedDocId } = UseApp();
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
-  const [runningAnalysis, setRunningAnalysis] = useState(false);
-  const [report, setReport] = useState<any>(null);
-  const [reportFiles, setReportFiles] = useState<any>(null);
+  const [searchParams] = useSearchParams();
+  const docIdParam = searchParams.get('doc_id');
+
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [selectedDocId, setSelectedDocId] = useState<number | null>(docIdParam ? Number(docIdParam) : null);
+  const [investmentData, setInvestmentData] = useState<InvestmentAnalysisType | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [docsLoading, setDocsLoading] = useState<boolean>(true);
 
   const fetchDocuments = async () => {
-    if (!company) return;
-    setLoadingDocs(true);
+    setDocsLoading(true);
     try {
-      const res = await api.get('/documents/', { params: { company_id: company.id } });
-      const completedDocs = res.data.filter((d: any) => d.status === 'completed');
-      setDocuments(completedDocs);
-      
-      // Auto-heal state: if selected doc ID is not found, default to first completed or null
-      if (selectedDocId && !completedDocs.some((d: any) => d.id === selectedDocId)) {
-        if (completedDocs.length > 0) {
-          setSelectedDocId(completedDocs[0].id);
-        } else {
-          setSelectedDocId(null);
-        }
+      const response = await api.get('/documents');
+      setDocuments(response.data);
+      if (response.data.length > 0 && !selectedDocId) {
+        setSelectedDocId(response.data[0].id);
       }
-    } catch (e) {
-      console.error(e);
-      message.error('Error fetching document list.');
+    } catch (error: any) {
+      message.error('Failed to load documents.');
     } finally {
-      setLoadingDocs(false);
+      setDocsLoading(false);
     }
   };
 
-  const fetchExistingReport = async (docId: number) => {
+  const fetchInvestmentReport = async (docId: number) => {
+    setLoading(true);
     try {
-      const res = await api.get('/reports/', { params: { document_id: docId, report_type: 'investment' } });
-      if (res.data.length > 0) {
-        const detailRes = await api.get(`/reports/${res.data[0].id}`);
-        setReport(JSON.parse(detailRes.data.content));
-        setReportFiles(detailRes.data);
-      } else {
-        setReport(null);
-        setReportFiles(null);
-      }
-    } catch (e) {
-      console.error('Failed to fetch existing reports', e);
+      const response = await api.post(`/documents/${docId}/investment-analysis`);
+      setInvestmentData(response.data);
+    } catch (error: any) {
+      console.error('Failed to fetch investment report:', error);
+      message.error('Failed to load investment analysis report.');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (company) {
-      fetchDocuments();
-    }
-  }, [company]);
+    fetchDocuments();
+  }, []);
 
   useEffect(() => {
     if (selectedDocId) {
-      fetchExistingReport(selectedDocId);
-    } else {
-      setReport(null);
-      setReportFiles(null);
+      fetchInvestmentReport(selectedDocId);
     }
   }, [selectedDocId]);
 
-  const handleRunAnalysis = async () => {
-    if (!selectedDocId) return;
-    setRunningAnalysis(true);
-    try {
-      message.loading({ content: 'Initiating VC/PE investment analysis...', key: 'inv_load' });
-      const res = await api.post(`/analysis/investment/${selectedDocId}`);
-      setReport(res.data);
-      message.success({ content: 'Investment analysis generated successfully.', key: 'inv_load' });
-      await fetchExistingReport(selectedDocId);
-    } catch (err: any) {
-      console.error(err);
-      message.error({ content: err.response?.data?.detail || 'Failed to complete investment assessment.', key: 'inv_load' });
-    } finally {
-      setRunningAnalysis(false);
+  const getRecommendationTag = (rec: string) => {
+    switch (rec.toLowerCase()) {
+      case 'strong buy':
+      case 'buy':
+        return <Tag color="green" style={{ fontSize: 16, padding: '4px 16px' }}>REC: {rec.toUpperCase()}</Tag>;
+      case 'hold':
+        return <Tag color="gold" style={{ fontSize: 16, padding: '4px 16px' }}>REC: {rec.toUpperCase()}</Tag>;
+      default:
+        return <Tag color="red" style={{ fontSize: 16, padding: '4px 16px' }}>REC: {rec.toUpperCase()}</Tag>;
     }
   };
 
-  const getRecommendationTag = (recommendation: string) => {
-    if (!recommendation) return <Tag color="gray" style={{ fontSize: 14, padding: '4px 12px' }}>N/A</Tag>;
-    const rec = recommendation.toUpperCase();
-    if (rec.includes('STRONG BUY')) return <Tag color="green" style={{ fontSize: 14, padding: '4px 12px' }}>STRONG BUY</Tag>;
-    if (rec.includes('BUY')) return <Tag color="cyan" style={{ fontSize: 14, padding: '4px 12px' }}>BUY</Tag>;
-    if (rec.includes('HOLD')) return <Tag color="gold" style={{ fontSize: 14, padding: '4px 12px' }}>HOLD</Tag>;
-    return <Tag color="red" style={{ fontSize: 14, padding: '4px 12px' }}>AVOID</Tag>;
-  };
-
-  const selectedDoc = documents.find(d => d.id === selectedDocId);
-
   return (
-    <div className="animate-fade-in">
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={2} style={{ fontFamily: "'Outfit', sans-serif", margin: 0 }}>Investment Analytics</Title>
-          <Paragraph style={{ color: '#94A3B8', marginTop: 4, margin: 0 }}>
-            Assess asset strength, addressable market indicators, operational margins, and valuation safety.
-          </Paragraph>
-        </div>
-
-        {/* Document Selector */}
-        <Space size="middle">
-          <Text style={{ color: '#94A3B8' }}>Select Target Document:</Text>
-          <Select
-            value={selectedDocId}
-            onChange={(value) => setSelectedDocId(value)}
-            style={{ width: 300 }}
-            placeholder="No Documents Loaded"
-            loading={loadingDocs}
-            options={documents.map(d => ({ value: d.id, label: d.file_name }))}
-          />
-        </Space>
+    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <div style={{ marginBottom: 24 }}>
+        <Title level={3} style={{ color: '#F8FAFC', margin: 0 }}>
+          Venture Capital & Private Equity Investment Audit
+        </Title>
+        <Text style={{ color: '#94A3B8' }}>
+          Evaluation of enterprise valuation, scalable unit economics, competitive moat, and investment recommendation.
+        </Text>
       </div>
 
-      <Divider style={{ margin: '12px 0 24px 0', borderColor: '#334155' }} />
+      <Card style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8, marginBottom: 24 }}>
+        <Text style={{ color: '#E2E8F0', fontWeight: 500, display: 'block', marginBottom: 6 }}>
+          Select Document for Investment Analysis:
+        </Text>
+        <Select
+          placeholder="Select a document"
+          value={selectedDocId}
+          onChange={(value) => setSelectedDocId(value)}
+          style={{ width: '100%' }}
+          loading={docsLoading}
+          size="large"
+        >
+          {documents.map((doc) => (
+            <Option key={doc.id} value={doc.id}>
+              📄 {doc.filename} ({doc.file_type.toUpperCase()})
+            </Option>
+          ))}
+        </Select>
+      </Card>
 
-      {!selectedDocId ? (
-        <Card className="glass-panel" style={{ textAlign: 'center', padding: 40 }}>
-          <InfoCircleOutlined style={{ fontSize: 48, color: '#3B82F6', marginBottom: 16 }} />
-          <Title level={4}>No Active Document Context Selected</Title>
-          <Paragraph style={{ color: '#94A3B8' }}>
-            Please select a completed document from the dropdown above or go to the Dashboard to set your target context.
-          </Paragraph>
-        </Card>
-      ) : runningAnalysis ? (
-        <Card className="glass-panel" style={{ textAlign: 'center', padding: 80 }}>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <Spin size="large" />
-          <Title level={4} style={{ marginTop: 24 }}>VC Valuation Engine Active</Title>
-          <Paragraph style={{ color: '#94A3B8' }}>
-            Evaluating operating margins, capital efficiency, intellectual property assets, and market comps. This might take up to 30 seconds.
-          </Paragraph>
-        </Card>
-      ) : !report ? (
-        <Card className="glass-panel" style={{ textAlign: 'center', padding: 60 }}>
-          <PieChartOutlined style={{ fontSize: 48, color: '#10B981', marginBottom: 16 }} />
-          <Title level={4}>Investment Analysis Pending</Title>
-          <Paragraph style={{ color: '#94A3B8' }}>
-            A structured investment evaluation has not yet been executed for <strong>{selectedDoc?.file_name}</strong>.
-          </Paragraph>
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            size="large"
-            onClick={handleRunAnalysis}
-            style={{ marginTop: 16, height: 46, backgroundColor: '#10B981', borderColor: '#10B981' }}
-          >
-            Execute AI Investment Analysis
-          </Button>
-        </Card>
-      ) : (
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Top Level Summary card */}
-          <Row gutter={[16, 16]}>
+          <div style={{ marginTop: 16 }}>
+            <Text style={{ color: '#94A3B8' }}>Analyzing investment thesis and unit economics...</Text>
+          </div>
+        </div>
+      ) : investmentData ? (
+        <div>
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             <Col xs={24} md={8}>
-              <Card className="glass-panel" style={{ height: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Text style={{ color: '#94A3B8', display: 'block', fontSize: 13, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Investment Grade Score
-                </Text>
-                <div style={{ padding: '24px 0' }}>
+              <Card style={{ background: '#1E293B', borderColor: '#334155', textAlign: 'center', height: '100%' }}>
+                <Text type="secondary" style={{ color: '#94A3B8' }}>Investment Opportunity Score</Text>
+                <div style={{ margin: '16px 0' }}>
                   <Progress
-                    type="dashboard"
-                    percent={report.investment_score}
+                    type="circle"
+                    percent={investmentData.investment_score}
                     strokeColor="#10B981"
-                    trailColor="#1E293B"
-                    strokeWidth={8}
-                    format={(percent) => (
-                      <span style={{ color: '#10B981', fontWeight: 800, fontSize: 24 }}>
-                        {percent}%
-                      </span>
-                    )}
+                    format={(percent) => <span style={{ color: '#F8FAFC', fontSize: 26 }}>{percent}/100</span>}
                   />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-                  {getRecommendationTag(report.recommendation)}
-                  <Text style={{ color: '#64748B', fontSize: 12 }}>
-                    Analyst Confidence: {report.confidence_score}%
-                  </Text>
+                <div>{getRecommendationTag(investmentData.recommendation)}</div>
+              </Card>
+            </Col>
+
+            <Col xs={24} md={16}>
+              <Card
+                title={
+                  <Space>
+                    <LineChartOutlined style={{ color: '#3B82F6' }} />
+                    <Text style={{ color: '#F8FAFC', fontWeight: 600 }}>Valuation & Financial Insights</Text>
+                  </Space>
+                }
+                style={{ background: '#1E293B', borderColor: '#334155', height: '100%' }}
+              >
+                <Paragraph style={{ color: '#E2E8F0', fontSize: 15, lineHeight: 1.6, background: '#0F172A', padding: 16, borderRadius: 6, border: '1px solid #334155' }}>
+                  {investmentData.valuation_insight}
+                </Paragraph>
+                <div style={{ textAlign: 'right', marginTop: 12 }}>
+                  <Tag color="blue">
+                    Confidence: {(investmentData.confidence_score * 100).toFixed(0)}%
+                  </Tag>
                 </div>
               </Card>
             </Col>
-            <Col xs={24} md={16}>
-              <Card title="Valuation Insight & Competitiveness" className="glass-panel" style={{ height: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'absolute', top: 16, right: 16 }}>
+          </Row>
+
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={24} md={12}>
+              <Card
+                title={
                   <Space>
-                    {reportFiles?.pdf_path && (
-                      <Button
-                        type="default"
-                        icon={<FilePdfOutlined />}
-                        onClick={() => downloadReport(reportFiles.pdf_path, `Investment_Report_${selectedDoc?.file_name.replace(/\.[^/.]+$/, "")}.pdf`)}
-                      >
-                        PDF
-                      </Button>
-                    )}
-                    {reportFiles?.docx_path && (
-                      <Button
-                        type="default"
-                        icon={<FileWordOutlined />}
-                        onClick={() => downloadReport(reportFiles.docx_path, `Investment_Report_${selectedDoc?.file_name.replace(/\.[^/.]+$/, "")}.docx`)}
-                      >
-                        DOCX
-                      </Button>
-                    )}
+                    <CheckCircleOutlined style={{ color: '#10B981' }} />
+                    <Text style={{ color: '#F8FAFC', fontWeight: 600 }}>Investment Strengths</Text>
                   </Space>
-                </div>
-                <div style={{ marginTop: 24 }}>
-                  <Paragraph style={{ color: '#E2E8F0', fontSize: 15, lineHeight: '1.6' }}>
-                    {report.valuation_insight}
+                }
+                style={{ background: '#1E293B', borderColor: '#334155', height: '100%' }}
+              >
+                <List
+                  dataSource={investmentData.strengths || []}
+                  renderItem={(strength) => (
+                    <List.Item style={{ color: '#A7F3D0', borderBottom: '1px solid #334155' }}>
+                      🟢 {strength}
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Card
+                title={
+                  <Space>
+                    <CloseCircleOutlined style={{ color: '#EF4444' }} />
+                    <Text style={{ color: '#F8FAFC', fontWeight: 600 }}>Weaknesses & Risks</Text>
+                  </Space>
+                }
+                style={{ background: '#1E293B', borderColor: '#334155', height: '100%' }}
+              >
+                <List
+                  dataSource={investmentData.weaknesses || []}
+                  renderItem={(weakness) => (
+                    <List.Item style={{ color: '#FCA5A5', borderBottom: '1px solid #334155' }}>
+                      🔴 {weakness}
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          {investmentData.final_analyst_opinion && (
+            <Card style={{ background: '#064E3B', borderColor: '#10B981', borderRadius: 8 }}>
+              <Space align="start" size="middle">
+                <TrophyOutlined style={{ fontSize: 24, color: '#34D399', marginTop: 4 }} />
+                <div>
+                  <Title level={5} style={{ color: '#D1FAE5', margin: 0 }}>
+                    Final Venture Partner Opinion
+                  </Title>
+                  <Paragraph style={{ color: '#ECFDF5', marginTop: 8, margin: 0, fontSize: 15 }}>
+                    "{investmentData.final_analyst_opinion}"
                   </Paragraph>
                 </div>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Strengths and Weaknesses */}
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Card title="Core Strategic Strengths" className="glass-panel" headStyle={{ borderBottom: '1px solid #334155' }}>
-                <ul style={{ paddingLeft: 18, color: '#94A3B8', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {(report.strengths || []).map((strength: string, i: number) => (
-                    <li key={i} style={{ color: '#F8FAFC' }}>
-                      <Text style={{ color: '#E2E8F0' }}>{strength}</Text>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </Col>
-            <Col xs={24} md={12}>
-              <Card title="Identified Weaknesses & Threats" className="glass-panel" headStyle={{ borderBottom: '1px solid #334155' }}>
-                <ul style={{ paddingLeft: 18, color: '#94A3B8', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {(report.weaknesses || []).map((weakness: string, i: number) => (
-                    <li key={i} style={{ color: '#EF4444' }}>
-                      <Text style={{ color: '#E2E8F0' }}>{weakness}</Text>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Verdict callout */}
-          <Card title="Final Analyst Investment Verdict" className="glass-panel" style={{ borderLeft: '4px solid #10B981' }}>
-            <Paragraph style={{ color: '#E2E8F0', fontSize: 14, fontStyle: 'italic', lineHeight: '1.6', margin: 0 }}>
-              "{report.final_analyst_opinion}"
-            </Paragraph>
-          </Card>
-        </Space>
+              </Space>
+            </Card>
+          )}
+        </div>
+      ) : (
+        <Alert
+          message="Select a Document"
+          description="Select a document above to evaluate investment metrics."
+          type="info"
+          showIcon
+        />
       )}
     </div>
   );

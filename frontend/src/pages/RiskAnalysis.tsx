@@ -1,329 +1,235 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Select, Button, Typography, Row, Col, Progress, Space, Divider, Alert, Spin, message } from 'antd';
+import { Card, Select, Typography, Space, Spin, Alert, List, Progress, Tag, Row, Col, message } from 'antd';
 import {
-  FileTextOutlined,
-  PlayCircleOutlined,
-  DownloadOutlined,
-  FilePdfOutlined,
-  FileWordOutlined,
-  InfoCircleOutlined,
-  WarningOutlined
+  SafetyCertificateOutlined,
+  WarningOutlined,
+  CheckCircleOutlined,
+  MedicineBoxOutlined,
+  AuditOutlined,
 } from '@ant-design/icons';
-import { UseApp } from '../App';
-import api from '../api';
-import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
+import api from '../services/api';
+import { DocumentItem, RiskAnalysis as RiskAnalysisType } from '../types';
 
-// Helper to resolve static asset absolute URLs on the backend
-const getMediaURL = (path: string) => {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  
-  const baseURL = import.meta.env.VITE_API_URL || '';
-  const cleanBase = baseURL.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
-  return `${cleanBase}${path}`;
-};
-
-// Helper to download cross-origin reports directly without opening new tabs/windows
-const downloadReport = async (path: string, fileName: string) => {
-  const fullUrl = getMediaURL(path);
-  if (!fullUrl) return;
-  try {
-    message.loading({ content: 'Downloading report file...', key: 'download_report', duration: 0 });
-    const res = await axios.get(fullUrl, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode?.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    message.success({ content: 'Download completed successfully.', key: 'download_report', duration: 2 });
-  } catch (err) {
-    console.error(err);
-    message.error({ content: 'Download failed. Opening file in a new tab instead.', key: 'download_report', duration: 3 });
-    window.open(fullUrl, '_blank');
-  }
-};
-
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
+const { Option } = Select;
 
 const RiskAnalysis: React.FC = () => {
-  const { company, selectedDocId, setSelectedDocId } = UseApp();
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
-  const [runningAnalysis, setRunningAnalysis] = useState(false);
-  const [report, setReport] = useState<any>(null);
-  const [reportFiles, setReportFiles] = useState<any>(null);
+  const [searchParams] = useSearchParams();
+  const docIdParam = searchParams.get('doc_id');
+
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [selectedDocId, setSelectedDocId] = useState<number | null>(docIdParam ? Number(docIdParam) : null);
+  const [riskData, setRiskData] = useState<RiskAnalysisType | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [docsLoading, setDocsLoading] = useState<boolean>(true);
 
   const fetchDocuments = async () => {
-    if (!company) return;
-    setLoadingDocs(true);
+    setDocsLoading(true);
     try {
-      const res = await api.get('/documents/', { params: { company_id: company.id } });
-      const completedDocs = res.data.filter((d: any) => d.status === 'completed');
-      setDocuments(completedDocs);
-      
-      // Auto-heal state: if selected doc ID is not found, default to first completed or null
-      if (selectedDocId && !completedDocs.some((d: any) => d.id === selectedDocId)) {
-        if (completedDocs.length > 0) {
-          setSelectedDocId(completedDocs[0].id);
-        } else {
-          setSelectedDocId(null);
-        }
+      const response = await api.get('/documents');
+      setDocuments(response.data);
+      if (response.data.length > 0 && !selectedDocId) {
+        setSelectedDocId(response.data[0].id);
       }
-    } catch (e) {
-      console.error(e);
-      message.error('Error fetching document list.');
+    } catch (error: any) {
+      message.error('Failed to load documents.');
     } finally {
-      setLoadingDocs(false);
+      setDocsLoading(false);
     }
   };
 
-  const fetchExistingReport = async (docId: number) => {
+  const fetchRiskReport = async (docId: number) => {
+    setLoading(true);
     try {
-      const res = await api.get('/reports/', { params: { document_id: docId, report_type: 'risk' } });
-      if (res.data.length > 0) {
-        // Fetch detailed report content
-        const detailRes = await api.get(`/reports/${res.data[0].id}`);
-        setReport(JSON.parse(detailRes.data.content));
-        setReportFiles(detailRes.data);
-      } else {
-        setReport(null);
-        setReportFiles(null);
-      }
-    } catch (e) {
-      console.error('Failed to fetch existing reports', e);
+      const response = await api.post(`/documents/${docId}/risk-analysis`);
+      setRiskData(response.data);
+    } catch (error: any) {
+      console.error('Failed to fetch risk report:', error);
+      message.error('Failed to load risk analysis report.');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (company) {
-      fetchDocuments();
-    }
-  }, [company]);
+    fetchDocuments();
+  }, []);
 
   useEffect(() => {
     if (selectedDocId) {
-      fetchExistingReport(selectedDocId);
-    } else {
-      setReport(null);
-      setReportFiles(null);
+      fetchRiskReport(selectedDocId);
     }
   }, [selectedDocId]);
 
-  const handleRunAnalysis = async () => {
-    if (!selectedDocId) return;
-    setRunningAnalysis(true);
-    try {
-      message.loading({ content: 'Executing deep AI risk assessment...', key: 'risk_load' });
-      const res = await api.post(`/analysis/risk/${selectedDocId}`);
-      setReport(res.data);
-      message.success({ content: 'Risk analysis generated successfully.', key: 'risk_load' });
-      // Fetch report files again to get download paths
-      await fetchExistingReport(selectedDocId);
-    } catch (err: any) {
-      console.error(err);
-      message.error({ content: err.response?.data?.detail || 'Failed to complete risk assessment.', key: 'risk_load' });
-    } finally {
-      setRunningAnalysis(false);
-    }
-  };
-
-  // Color selection based on risk rating
   const getRiskColor = (score: number) => {
-    if (score > 70) return '#EF4444'; // Red
-    if (score > 40) return '#F59E0B'; // Orange
-    return '#10B981'; // Green
+    if (score < 30) return '#10B981'; // Low - Green
+    if (score < 60) return '#F59E0B'; // Medium - Yellow
+    if (score < 80) return '#EF4444'; // High - Red
+    return '#DC2626'; // Critical - Dark Red
   };
-
-  const selectedDoc = documents.find(d => d.id === selectedDocId);
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={2} style={{ fontFamily: "'Outfit', sans-serif", margin: 0 }}>Risk Assessment Core</Title>
-          <Paragraph style={{ color: '#94A3B8', marginTop: 4, margin: 0 }}>
-            Audit compliance clauses, liability covenants, governance policies, and operational risks.
-          </Paragraph>
-        </div>
-
-        {/* Document Selector */}
-        <Space size="middle">
-          <Text style={{ color: '#94A3B8' }}>Select Target Document:</Text>
-          <Select
-            value={selectedDocId}
-            onChange={(value) => setSelectedDocId(value)}
-            style={{ width: 300 }}
-            placeholder="No Documents Loaded"
-            loading={loadingDocs}
-            options={documents.map(d => ({ value: d.id, label: d.file_name }))}
-          />
-        </Space>
+    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <div style={{ marginBottom: 24 }}>
+        <Title level={3} style={{ color: '#F8FAFC', margin: 0 }}>
+          Chief Risk Officer (CRO) Risk Audit
+        </Title>
+        <Text style={{ color: '#94A3B8' }}>
+          Automated risk assessment analyzing financial, legal, operational, market, and governance exposure.
+        </Text>
       </div>
 
-      <Divider style={{ margin: '12px 0 24px 0', borderColor: '#334155' }} />
+      <Card style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8, marginBottom: 24 }}>
+        <Text style={{ color: '#E2E8F0', fontWeight: 500, display: 'block', marginBottom: 6 }}>
+          Select Document for Risk Assessment:
+        </Text>
+        <Select
+          placeholder="Select a document"
+          value={selectedDocId}
+          onChange={(value) => setSelectedDocId(value)}
+          style={{ width: '100%' }}
+          loading={docsLoading}
+          size="large"
+        >
+          {documents.map((doc) => (
+            <Option key={doc.id} value={doc.id}>
+              📄 {doc.filename} ({doc.file_type.toUpperCase()})
+            </Option>
+          ))}
+        </Select>
+      </Card>
 
-      {!selectedDocId ? (
-        <Card className="glass-panel" style={{ textAlign: 'center', padding: 40 }}>
-          <InfoCircleOutlined style={{ fontSize: 48, color: '#3B82F6', marginBottom: 16 }} />
-          <Title level={4}>No Active Document Context Selected</Title>
-          <Paragraph style={{ color: '#94A3B8' }}>
-            Please select a completed document from the dropdown above or go to the Dashboard to set your target context.
-          </Paragraph>
-        </Card>
-      ) : runningAnalysis ? (
-        <Card className="glass-panel" style={{ textAlign: 'center', padding: 80 }}>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <Spin size="large" />
-          <Title level={4} style={{ marginTop: 24 }}>AI Risk Engine Initiated</Title>
-          <Paragraph style={{ color: '#94A3B8' }}>
-            Evaluating legal clauses, operational threats, liability thresholds, and capitalization models. This might take up to 30 seconds.
-          </Paragraph>
-        </Card>
-      ) : !report ? (
-        <Card className="glass-panel" style={{ textAlign: 'center', padding: 60 }}>
-          <WarningOutlined style={{ fontSize: 48, color: '#F59E0B', marginBottom: 16 }} />
-          <Title level={4}>Risk Assessment Pending</Title>
-          <Paragraph style={{ color: '#94A3B8' }}>
-            A comprehensive risk audit has not yet been executed for <strong>{selectedDoc?.file_name}</strong>.
-          </Paragraph>
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            size="large"
-            onClick={handleRunAnalysis}
-            style={{ marginTop: 16, height: 46 }}
-          >
-            Execute AI Risk Analysis
-          </Button>
-        </Card>
-      ) : (
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Top Level Summary card */}
-          <Row gutter={[16, 16]}>
+          <div style={{ marginTop: 16 }}>
+            <Text style={{ color: '#94A3B8' }}>Evaluating risk vectors from document text...</Text>
+          </div>
+        </div>
+      ) : riskData ? (
+        <div>
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             <Col xs={24} md={8}>
-              <Card className="glass-panel" style={{ height: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Text style={{ color: '#94A3B8', display: 'block', fontSize: 13, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Overall Risk Score
-                </Text>
-                <div style={{ padding: '24px 0' }}>
+              <Card style={{ background: '#1E293B', borderColor: '#334155', textAlign: 'center', height: '100%' }}>
+                <Text type="secondary" style={{ color: '#94A3B8' }}>Overall Risk Score</Text>
+                <div style={{ margin: '16px 0' }}>
                   <Progress
-                    type="circle"
-                    percent={report.overall_risk_score}
-                    strokeColor={getRiskColor(report.overall_risk_score)}
-                    trailColor="#1E293B"
-                    strokeWidth={8}
-                    format={(percent) => (
-                      <span style={{ color: getRiskColor(percent || 0), fontWeight: 800, fontSize: 24 }}>
-                        {percent}%
-                      </span>
-                    )}
+                    type="dashboard"
+                    percent={riskData.overall_risk_score}
+                    strokeColor={getRiskColor(riskData.overall_risk_score)}
+                    format={(percent) => <span style={{ color: '#F8FAFC', fontSize: 24 }}>{percent}%</span>}
                   />
                 </div>
-                <Title level={4} style={{ margin: 0, color: getRiskColor(report.overall_risk_score) }}>
-                  {report.risk_level} Risk Level
-                </Title>
+                <div>
+                  <Tag color={riskData.overall_risk_score > 60 ? 'red' : 'gold'} style={{ fontSize: 14, padding: '4px 12px' }}>
+                    Risk Level: {riskData.risk_level}
+                  </Tag>
+                </div>
               </Card>
             </Col>
+
             <Col xs={24} md={16}>
-              <Card className="glass-panel" style={{ height: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <Title level={4} style={{ margin: 0 }}>Executive Summary</Title>
-                  {/* Download Options */}
-                  <Space>
-                    {reportFiles?.pdf_path && (
-                      <Button
-                        type="default"
-                        icon={<FilePdfOutlined />}
-                        onClick={() => downloadReport(reportFiles.pdf_path, `Risk_Report_${selectedDoc?.file_name.replace(/\.[^/.]+$/, "")}.pdf`)}
-                      >
-                        PDF
-                      </Button>
-                    )}
-                    {reportFiles?.docx_path && (
-                      <Button
-                        type="default"
-                        icon={<FileWordOutlined />}
-                        onClick={() => downloadReport(reportFiles.docx_path, `Risk_Report_${selectedDoc?.file_name.replace(/\.[^/.]+$/, "")}.docx`)}
-                      >
-                        DOCX
-                      </Button>
-                    )}
-                  </Space>
+              <Card
+                title={<Text style={{ color: '#F8FAFC', fontWeight: 600 }}>Risk Exposure Breakdown</Text>}
+                style={{ background: '#1E293B', borderColor: '#334155', height: '100%' }}
+              >
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#E2E8F0' }}>Legal & Indemnification Risk</Text>
+                    <Text style={{ color: '#94A3B8' }}>{riskData.risk_breakdown?.legal_risk || 50}%</Text>
+                  </div>
+                  <Progress percent={riskData.risk_breakdown?.legal_risk || 50} strokeColor="#EF4444" showInfo={false} />
                 </div>
-                <Paragraph style={{ color: '#E2E8F0', fontSize: 14, lineHeight: '1.6', margin: 0 }}>
-                  {report.executive_summary}
-                </Paragraph>
-              </Card>
-            </Col>
-          </Row>
 
-          {/* Breakdown and Key Risks */}
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Card title="Risk Breakdown Categories" className="glass-panel">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {Object.entries(report.risk_breakdown || {}).map(([key, value]) => {
-                    const label = key.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-                    const val = value as number;
-                    return (
-                      <div key={key}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <Text style={{ color: '#E2E8F0', fontWeight: 500 }}>{label}</Text>
-                          <Text style={{ color: getRiskColor(val), fontWeight: 700 }}>{val}/100</Text>
-                        </div>
-                        <Progress
-                          percent={val}
-                          strokeColor={getRiskColor(val)}
-                          trailColor="#1E293B"
-                          showInfo={false}
-                          strokeWidth={8}
-                        />
-                      </div>
-                    );
-                  })}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#E2E8F0' }}>Financial & Debt Covenant Risk</Text>
+                    <Text style={{ color: '#94A3B8' }}>{riskData.risk_breakdown?.financial_risk || 40}%</Text>
+                  </div>
+                  <Progress percent={riskData.risk_breakdown?.financial_risk || 40} strokeColor="#F59E0B" showInfo={false} />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#E2E8F0' }}>Operational & Customer Concentration Risk</Text>
+                    <Text style={{ color: '#94A3B8' }}>{riskData.risk_breakdown?.operational_risk || 45}%</Text>
+                  </div>
+                  <Progress percent={riskData.risk_breakdown?.operational_risk || 45} strokeColor="#3B82F6" showInfo={false} />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#E2E8F0' }}>Market & Sector Competition Risk</Text>
+                    <Text style={{ color: '#94A3B8' }}>{riskData.risk_breakdown?.market_risk || 35}%</Text>
+                  </div>
+                  <Progress percent={riskData.risk_breakdown?.market_risk || 35} strokeColor="#10B981" showInfo={false} />
                 </div>
               </Card>
             </Col>
-
-            <Col xs={24} md={12}>
-              <Card title="Key Identified Vulnerabilities" className="glass-panel">
-                <ul style={{ paddingLeft: 18, color: '#94A3B8', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {(report.key_risks || []).map((risk: string, i: number) => (
-                    <li key={i}>
-                      <Text style={{ color: '#F8FAFC', fontWeight: 500, display: 'block' }}>Risk {i + 1}</Text>
-                      <Text style={{ color: '#94A3B8' }}>{risk}</Text>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </Col>
           </Row>
 
-          {/* Mitigation and Opinion */}
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Card title="Strategic Mitigation Actions" className="glass-panel">
-                <ul style={{ paddingLeft: 18, color: '#94A3B8', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {(report.recommendations || []).map((rec: string, i: number) => (
-                    <li key={i}>
-                      <Text style={{ color: '#3B82F6', fontWeight: 600, display: 'block' }}>Mitigation Step {i + 1}</Text>
-                      <Text style={{ color: '#94A3B8' }}>{rec}</Text>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </Col>
-            <Col xs={24} md={12}>
-              <Card title="Consultant Verdict" className="glass-panel" style={{ borderLeft: `4px solid ${getRiskColor(report.overall_risk_score)}` }}>
-                <Paragraph style={{ color: '#E2E8F0', fontSize: 14, fontStyle: 'italic', lineHeight: '1.6', margin: 0 }}>
-                  "{report.final_consultant_opinion}"
-                </Paragraph>
-              </Card>
-            </Col>
-          </Row>
-        </Space>
+          <Card
+            title={
+              <Space>
+                <WarningOutlined style={{ color: '#EF4444' }} />
+                <Text style={{ color: '#F8FAFC', fontWeight: 600 }}>Identified Risk Factors</Text>
+              </Space>
+            }
+            style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8, marginBottom: 24 }}
+          >
+            <List
+              dataSource={riskData.key_risks || []}
+              renderItem={(risk) => (
+                <List.Item style={{ color: '#FCA5A5', borderBottom: '1px solid #334155' }}>
+                  ⚠️ {risk}
+                </List.Item>
+              )}
+            />
+          </Card>
+
+          <Card
+            title={
+              <Space>
+                <MedicineBoxOutlined style={{ color: '#10B981' }} />
+                <Text style={{ color: '#F8FAFC', fontWeight: 600 }}>Mitigation Strategies</Text>
+              </Space>
+            }
+            style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8, marginBottom: 24 }}
+          >
+            <List
+              dataSource={riskData.recommendations || []}
+              renderItem={(rec) => (
+                <List.Item style={{ color: '#A7F3D0', borderBottom: '1px solid #334155' }}>
+                  🛡️ {rec}
+                </List.Item>
+              )}
+            />
+          </Card>
+
+          {riskData.final_consultant_opinion && (
+            <Card style={{ background: '#1E1B4B', borderColor: '#6366F1', borderRadius: 8 }}>
+              <Space align="start" size="middle">
+                <AuditOutlined style={{ fontSize: 24, color: '#818CF8', marginTop: 4 }} />
+                <div>
+                  <Title level={5} style={{ color: '#C7D2FE', margin: 0 }}>
+                    Final Chief Risk Officer Opinion
+                  </Title>
+                  <Paragraph style={{ color: '#E0E7FF', marginTop: 8, margin: 0, fontSize: 15 }}>
+                    "{riskData.final_consultant_opinion}"
+                  </Paragraph>
+                </div>
+              </Space>
+            </Card>
+          )}
+        </div>
+      ) : (
+        <Alert
+          message="Select a Document"
+          description="Select a document above to evaluate risk metrics."
+          type="info"
+          showIcon
+        />
       )}
     </div>
   );

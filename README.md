@@ -1,143 +1,242 @@
 # DueDiligence Pro AI
 
-> **AI-Powered Corporate Due Diligence, Risk Intelligence & Investment Analysis Platform**
-
-**Live Demo (Vercel):** [duediligence-pro-aii.vercel.app](https://duediligence-pro-aii.vercel.app)  
-**API Documentation (Render):** [duediligence-pro-ai.onrender.com/docs](https://duediligence-pro-ai.onrender.com/docs)
-
-DueDiligence Pro AI is a production-grade, multi-tenant AI application built for venture capital, private equity, and investment banking analysts. It automates qualitative risk auditing, valuation reviews, and document-specific Q&A for complex corporate agreements, financial prospectuses, and pitch decks.
-
-The platform solves the **RAG context leakage problem** (cross-document contamination) by employing a strictly segmented vector search pipeline where query scopes are isolated dynamically to the user's active document context.
+**DueDiligence Pro AI** is an enterprise-grade AI-powered document analysis platform built for campus placement and full-stack AI engineering portfolios. It enables users to upload business due diligence documents (PDF and DOCX), extract and chunk document text, index semantic embeddings in ChromaDB, store relational metadata in MySQL, generate structured executive summaries using Google Gemini, and ask document-grounded questions via Retrieval-Augmented Generation (RAG).
 
 ---
 
-## 📷 Platform Showcase
+## 🌟 Key Features
 
-| Feature View | Screenshot |
-| --- | --- |
-| **Interactive Analytics Dashboard** <br> Monitor key metrics and company context switcher. | ![Dashboard](./Screenshots/Dashboard.png) |
-| **Low-Memory Ingestion Pipeline** <br> Upload PDF and Word files with real-time status. | ![Upload Document](./Screenshots/Upload%20Document.png) |
-| **AI Risk Assessment Audit** <br> Evaluates contracts across 5 critical risk dimensions. | ![Risk Analysis](./Screenshots/Risk%20Analysis.png) |
-| **VC/PE Valuation Analysis** <br> Buy/Hold verdicts, SWOT analysis, and confidence ratings. | ![Investment Analysis](./Screenshots/Investment%20Analysis.png) |
-| **Isolated AI Chat Assistant** <br> Context-isolated semantic Q&A with document evidence. | ![AI Assistant](./Screenshots/AI%20Assistant.png) |
-| **Corporate Report Downloads** <br> Download dynamically generated PDF and Word reports. | ![Report Module](./Screenshots/Report%20Module.png) |
+1. **User Authentication & Authorization**: Secure JWT-based registration and login with password hashing (`bcrypt`).
+2. **Multi-User Document Isolation**: Users can only access and query their own uploaded documents.
+3. **Multi-Format Document Ingestion**: Text extraction and chunking for both **PDF** (`pypdf`) and **DOCX** (`python-docx`).
+4. **Local Persistent Vector Search**: Chunks and embeddings stored in local persistent ChromaDB with user-level and document-level metadata filtering.
+5. **Retrieval-Augmented Generation (RAG)**: Question-answering pipeline using semantic similarity search + Google Gemini for context-restricted, hallucination-free answers.
+6. **Automated Executive Summaries**: Concise summary breakdown including Overview, Key Findings, Important Risks, Financial/Business Info, and Actionable Recommendations.
+7. **Relational Data Management**: Clean database structure using MySQL and SQLAlchemy ORM.
+8. **Modern Interactive Dashboard**: Professional dark-themed UI built with React, TypeScript, Vite, and Ant Design.
 
 ---
 
-## ⚙️ System Architecture
+## 🛠️ Technology Stack
 
-The application implements a decoupled, service-oriented architecture linking a high-performance Python API backend, an isolated vector store database, a relational storage gateway, and a dark-themed glassmorphic client interface.
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | React.js, TypeScript, Vite, Ant Design (`antd`) |
+| **Backend** | Python 3.11+, FastAPI, Uvicorn |
+| **Relational Database** | MySQL 8.0+, SQLAlchemy ORM, PyMySQL |
+| **Vector Database** | ChromaDB (Local Persistent Storage) |
+| **AI / LLM** | Google Gemini API (Generative AI SDK) |
+| **Document Parsers** | PyPDF, python-docx |
+| **Authentication** | JWT (PyJWT / python-jose), Passlib (Bcrypt) |
+| **Version Control** | Git, GitHub |
 
-```mermaid
-graph TD
-    subgraph Frontend [React SPA Client]
-        UI[User Interface - Ant Design & Recharts]
-    end
+---
 
-    subgraph Backend [FastAPI Server]
-        API[API Router & Auth Gateway]
-        RAG[RAG & Gemini Controller]
-    end
+## 📐 System Architecture
 
-    subgraph Database [Storage Layer]
-        DB[(PostgreSQL / MySQL)]
-        CHROMA[(ChromaDB Vector Store)]
-        GEMINI[Google Gemini API]
-    end
-
-    UI -->|REST API Requests| API
-    API -->|SQLAlchemy ORM| DB
-    RAG -->|Metadata Filtered Search| CHROMA
-    RAG -->|Context Prompting| GEMINI
+```
+React.js + TypeScript Frontend (Vite + Ant Design)
+                     │
+                     │ REST API Requests (Bearer JWT Token)
+                     ▼
+             FastAPI Backend
+                     │
+    ┌────────────────┼────────────────┐
+    │                │                │
+    ▼                ▼                ▼
+Authentication    RAG Engine      Document Parser
+ (JWT / Passlib)   & Gemini       (PyPDF / python-docx)
+                     │
+            ┌────────┴────────┐
+            ▼                 ▼
+   ChromaDB (Vectors)    MySQL (Relational Metadata)
+   - Chunk Embeddings    - Users
+   - Metadata Filters    - Documents
+                         - Document Analysis
+                         - Chat Messages
 ```
 
 ---
 
-## 🚀 Key Engineering & ML Features
-
-* **Segmented RAG (Retrieval-Augmented Generation)**: Enforces document boundaries by running metadata-filtered vector searches (`where={"document_id": active_id}`) in ChromaDB, preventing cross-tenant data leaks.
-* **Structured LLM Schema Enforcement**: Configures Google Gemini 2.5 Flash using strict JSON schemas to guarantee deterministic data parsing and reliable API responses.
-* **Low-Memory Text Processing Pipeline**: Uses token-safe sliding-window character chunking (1000 characters size, 200 overlap) and streams PDF extractions (`pypdf`) to lower server RAM consumption by 80%.
-* **On-the-Fly Document Generation**: Compiles professional PDF executive summaries using ReportLab (with custom page constraints, tables, and drawn score indicators) and Word documents via `python-docx`.
-* **Zero-Config Resiliency**: Graded database connection retries (PostgreSQL $\rightarrow$ MySQL) and local heuristic search fallbacks ensure full application functionality even without external API keys or cloud databases.
-
----
-
-## 📂 Repository Structure
+## 📁 Project Structure
 
 ```
 due-diligence-pro-ai/
-├── docker-compose.yml
-├── .env.example
-├── README.md
-├── Screenshots/
 ├── backend/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── app/
-│       ├── main.py
-│       ├── api/
-│       │   ├── deps.py
-│       │   └── routers/
-│       │       ├── auth.py, companies.py, documents.py,
-│       │       │   analysis.py, chat.py, reports.py, dashboard.py
-│       ├── core/
-│       │   ├── config.py, security.py
-│       ├── database/
-│       │   ├── session.py, chroma.py
-│       ├── models/
-│       │   └── models.py
-│       ├── schemas/
-│       │   └── schemas.py
-│       └── services/
-│           ├── document_processor.py, ai_service.py, report_generator.py
-└── frontend/
-    ├── Dockerfile
-    ├── nginx.conf
-    ├── package.json
-    ├── vite.config.ts
-    └── src/
-        ├── main.tsx
-        ├── App.tsx
-        └── pages/
-            ├── Login.tsx, Register.tsx, Dashboard.tsx, Upload.tsx,
-            │   RiskAnalysis.tsx, InvestmentAnalysis.tsx, AIAssistant.tsx, Reports.tsx
+│   ├── app/
+│   │   ├── core/
+│   │   │   ├── config.py         # App configuration & env settings
+│   │   │   ├── security.py       # Password hashing & JWT tokens
+│   │   │   └── deps.py           # FastAPI auth dependencies
+│   │   ├── db/
+│   │   │   ├── database.py       # MySQL database session
+│   │   │   └── models.py         # SQLAlchemy models (User, Document, etc.)
+│   │   ├── schemas/
+│   │   │   ├── auth.py           # Auth Pydantic models
+│   │   │   ├── document.py       # Document & Summary Pydantic models
+│   │   │   └── chat.py           # RAG Chat Pydantic models
+│   │   ├── routers/
+│   │   │   ├── auth.py           # Auth endpoints (/auth/register, /auth/login)
+│   │   │   ├── documents.py      # Document endpoints (/documents/upload, /summary)
+│   │   │   └── chat.py           # RAG Q&A endpoints (/documents/{id}/ask)
+│   │   ├── services/
+│   │   │   ├── document_service.py   # Text extraction & database orchestration
+│   │   │   ├── embedding_service.py  # Gemini & ChromaDB vector embeddings
+│   │   │   ├── rag_service.py        # Persistent ChromaDB vector search
+│   │   │   └── gemini_service.py     # Gemini LLM Q&A & Executive Summaries
+│   │   ├── utils/
+│   │   │   └── document_parser.py    # PyPDF & python-docx text extractors
+│   │   └── main.py              # FastAPI application entry point
+│   ├── test_app.py              # Backend automated test suite
+│   ├── requirements.txt         # Clean backend dependencies
+│   └── .env.example             # Environment variable template
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── layouts/
+│   │   │   └── DashboardLayout.tsx
+│   │   ├── pages/
+│   │   │   ├── Login.tsx
+│   │   │   ├── Register.tsx
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── Upload.tsx
+│   │   │   ├── DocumentDetails.tsx
+│   │   │   ├── AIQuestionAnswer.tsx
+│   │   │   └── ExecutiveSummary.tsx
+│   │   ├── services/
+│   │   │   └── api.ts
+│   │   ├── types/
+│   │   │   └── index.ts
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── index.css
+│   ├── package.json
+│   └── vite.config.ts
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-## 🛠️ Environment Configuration
+## ⚙️ Prerequisites
 
-Configure the root `.env` file prior to starting the containers:
+- **Python**: Version 3.11 or higher
+- **Node.js**: Version 18.0 or higher
+- **MySQL**: Local MySQL Server 8.0+ running on port 3306
+
+---
+
+## 🗄️ MySQL Database Setup
+
+1. Start your local MySQL service.
+2. Log into MySQL and create the database:
+   ```sql
+   CREATE DATABASE due_diligence;
+   ```
+3. Update database credentials in your `.env` file (`MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST`, `MYSQL_PORT`).
+
+---
+
+## 🔐 Environment Variables
+
+Create a `.env` file in the root directory (and in `backend/.env`):
+
+```env
+# Google Gemini API Access Key
+GEMINI_API_KEY=your_google_gemini_api_key_here
+
+# MySQL Database Settings
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=your_mysql_password
+MYSQL_DATABASE=due_diligence
+
+# Security Secret Key for JWT Signing
+SECRET_KEY=super_secret_jwt_key_here
+```
+
+---
+
+## 🚀 Running the Application
+
+### 1. Backend Setup (FastAPI)
 
 ```bash
-# Google Gemini API Key
-GEMINI_API_KEY=your_gemini_api_key_here
+# Navigate to backend directory
+cd backend
 
-# JWT Signature Secret
-SECRET_KEY=generate_a_secure_token_secret_here
+# Create and activate virtual environment
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
 
-# Databases (Defaults configured for Docker Compose orchestration)
-DATABASE_URL=mysql+pymysql://root:password@mysql:3306/due_diligence
-CHROMA_HOST=chromadb
-CHROMA_PORT=8000
+# Install dependencies
+pip install -r requirements.txt
+
+# Run backend server
+python app/main.py
 ```
+The backend API will start at: `http://localhost:8000`  
+Swagger API Docs available at: `http://localhost:8000/docs`
 
----
-
-## 🐳 Quick Start: Local Deployment
-
-You can build and launch the entire local container stack (database, vector store, FastAPI API backend, React web portal) with a single command:
+### 2. Frontend Setup (React + Vite)
 
 ```bash
-# Build and start all services
-docker-compose up --build
-```
+# Open a new terminal and navigate to frontend directory
+cd frontend
 
-Once running, access the services at:
-* **Client Frontend**: `http://localhost:5173`
-* **API Documentation**: `http://localhost:8000/docs`
-* **ChromaDB API Health**: `http://localhost:8001/api/v1/heartbeat`
+# Install npm dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+The frontend will start at: `http://localhost:5173`
 
 ---
+
+## 🧠 How Retrieval-Augmented Generation (RAG) Works
+
+1. **Document Upload & Text Extraction**: When a user uploads a PDF or DOCX file, `pypdf` or `python-docx` extracts raw text.
+2. **Text Chunking**: The text is split into overlapping chunks (1,000 characters with 200 overlap).
+3. **Vector Embeddings**: Real semantic embeddings are generated for each chunk using Google Gemini API (`models/gemini-embedding-001`).
+4. **Persistent Vector Indexing**: Chunks and vectors are saved into local persistent ChromaDB with strict metadata filters (`document_id` and `user_id`).
+5. **Contextual Query & LLM Synthesis**: When the user asks a question, ChromaDB retrieves top relevant text chunks. The context is passed to Google Gemini with instructions to answer based **strictly** on the document excerpts.
+
+---
+
+## 📡 API Endpoints Overview
+
+### Authentication
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - Authenticate user & return JWT token
+- `GET /api/v1/auth/me` - Get current user profile
+
+### Documents
+- `POST /api/v1/documents/upload` - Upload PDF/DOCX file and index with AI
+- `GET /api/v1/documents` - List user's documents
+- `GET /api/v1/documents/{id}` - Get document details, summary, risk & investment reports
+- `DELETE /api/v1/documents/{id}` - Delete document and ChromaDB vectors
+- `POST /api/v1/documents/{id}/summary` - Fetch/regenerate executive summary
+- `POST /api/v1/documents/{id}/risk-analysis` - Generate CRO Risk Analysis report
+- `POST /api/v1/documents/{id}/investment-analysis` - Generate VC Investment Analysis report
+
+### RAG Chat
+- `POST /api/v1/documents/{id}/ask` - RAG semantic search & Q&A
+- `GET /api/v1/documents/{id}/chat-history` - Get document Q&A history
+
+---
+
+## 🧪 Running Automated Tests
+
+Run the test suite to verify MySQL connection, authentication, document parsing, vector indexing, multi-tenant security, executive summary, risk analysis, and investment analysis:
+
+```bash
+cd backend
+python test_app.py
+```
 

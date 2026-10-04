@@ -1,125 +1,89 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Button, Badge, Space, Typography, Empty, Tooltip, Alert, Divider, message } from 'antd';
+import { Card, Row, Col, Typography, Button, Table, Tag, Space, Spin, message, Popconfirm } from 'antd';
 import {
   FileTextOutlined,
-  AlertOutlined,
-  LineChartOutlined,
-  MessageOutlined,
+  CloudUploadOutlined,
+  QuestionCircleOutlined,
+  EyeOutlined,
+  DeleteOutlined,
   CheckCircleOutlined,
-  LoadingOutlined,
+  SyncOutlined,
   CloseCircleOutlined,
-  CheckOutlined,
-  PlusOutlined,
-  InfoCircleOutlined
 } from '@ant-design/icons';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { UseApp } from '../App';
-import api from '../api';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
+import { DocumentItem } from '../types';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 
 const Dashboard: React.FC = () => {
-  const { company, selectedDocId, setSelectedDocId, companies } = UseApp();
-  const [kpis, setKpis] = useState<any>(null);
-  const [trends, setTrends] = useState<any>(null);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const navigate = useNavigate();
 
-  const fetchDashboardData = async () => {
-    if (!company) return;
+  const fetchDocuments = async () => {
     setLoading(true);
     try {
-      const kpiRes = await api.get('/dashboard/kpis', { params: { company_id: company.id } });
-      setKpis(kpiRes.data);
-
-      const trendRes = await api.get('/dashboard/trends', { params: { company_id: company.id } });
-      setTrends(trendRes.data);
-
-      const docRes = await api.get('/documents/', { params: { company_id: company.id } });
-      setDocuments(docRes.data);
-      
-      // Auto-select latest completed document if none is selected
-      if (docRes.data.length > 0 && !selectedDocId) {
-        const firstCompleted = docRes.data.find((d: any) => d.status === 'completed');
-        if (firstCompleted) {
-          setSelectedDocId(firstCompleted.id);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load dashboard data', e);
-      message.error('Error fetching analytics database records.');
+      const response = await api.get('/documents');
+      setDocuments(response.data);
+    } catch (error: any) {
+      console.error('Failed to fetch documents:', error);
+      message.error('Could not load documents from server.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDashboardData();
-    
-    // Set up polling for documents every 5 seconds to catch completed background processing
-    const interval = setInterval(() => {
-      if (company) {
-        api.get('/documents/', { params: { company_id: company.id } })
-          .then(res => {
-            setDocuments(res.data);
-            api.get('/dashboard/kpis', { params: { company_id: company.id } }).then(kpi => setKpis(kpi.data));
-            api.get('/dashboard/trends', { params: { company_id: company.id } }).then(tr => setTrends(tr.data));
-          })
-          .catch(err => console.error(err));
-      }
-    }, 5000);
+    fetchDocuments();
+  }, []);
 
-    return () => clearInterval(interval);
-  }, [company]);
-
-  const selectDocument = (doc: any) => {
-    if (doc.status !== 'completed') {
-      return message.warning('Document is still processing. Please wait for completion.');
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/documents/${id}`);
+      message.success('Document deleted successfully.');
+      fetchDocuments();
+    } catch (error: any) {
+      message.error('Failed to delete document.');
     }
-    setSelectedDocId(doc.id);
-    message.success(`Analysis context focused on: ${doc.file_name}`);
   };
 
   const columns = [
     {
-      title: 'Document Name',
-      dataIndex: 'file_name',
-      key: 'file_name',
-      render: (text: string, record: any) => (
+      title: 'Filename',
+      dataIndex: 'filename',
+      key: 'filename',
+      render: (text: string, record: DocumentItem) => (
         <Space>
           <FileTextOutlined style={{ color: '#3B82F6' }} />
-          <span style={{ fontWeight: 500, color: '#E2E8F0' }}>{text}</span>
-          {selectedDocId === record.id && (
-            <Badge status="processing" text="Active Focus" style={{ marginLeft: 8 }} />
-          )}
+          <Text
+            style={{ color: '#F8FAFC', cursor: 'pointer', fontWeight: 500 }}
+            onClick={() => navigate(`/documents/${record.id}`)}
+          >
+            {text}
+          </Text>
         </Space>
-      )
+      ),
+    },
+    {
+      title: 'Type',
+      dataIndex: 'file_type',
+      key: 'file_type',
+      render: (type: string) => (
+        <Tag color={type.toLowerCase() === 'pdf' ? 'red' : 'blue'}>
+          {type.toUpperCase()}
+        </Tag>
+      ),
     },
     {
       title: 'Upload Date',
-      dataIndex: 'upload_date',
-      key: 'upload_date',
-      render: (dateStr: string) => new Date(dateStr).toLocaleDateString()
-    },
-    {
-      title: 'Risk Score',
-      dataIndex: 'risk_score',
-      key: 'risk_score',
-      render: (score: number | null) => {
-        if (score === null) return <Text style={{ color: '#64748B' }}>N/A</Text>;
-        const color = score > 70 ? '#EF4444' : (score > 40 ? '#F59E0B' : '#10B981');
-        return <Text style={{ color, fontWeight: 700 }}>{score}/100</Text>;
-      }
-    },
-    {
-      title: 'Investment Score',
-      dataIndex: 'investment_score',
-      key: 'investment_score',
-      render: (score: number | null) => {
-        if (score === null) return <Text style={{ color: '#64748B' }}>N/A</Text>;
-        const color = score > 75 ? '#10B981' : (score > 50 ? '#F59E0B' : '#EF4444');
-        return <Text style={{ color, fontWeight: 700 }}>{score}/100</Text>;
-      }
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (date: string) => (
+        <Text style={{ color: '#94A3B8' }}>
+          {new Date(date).toLocaleDateString()} {new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      ),
     },
     {
       title: 'Status',
@@ -127,216 +91,126 @@ const Dashboard: React.FC = () => {
       key: 'status',
       render: (status: string) => {
         if (status === 'completed') {
-          return <Badge status="success" text="Completed" />;
-        } else if (status === 'failed') {
-          return <Badge status="error" text="Failed" />;
+          return <Tag icon={<CheckCircleOutlined />} color="success">Completed</Tag>;
+        } else if (status === 'processing') {
+          return <Tag icon={<SyncOutlined spin />} color="processing">Processing</Tag>;
+        } else {
+          return <Tag icon={<CloseCircleOutlined />} color="error">Failed</Tag>;
         }
-        return (
-          <Tooltip title="Text extraction, chunking, and AI embedding generation typically take 10-15 seconds. Please wait.">
-            <Space>
-              <LoadingOutlined style={{ color: '#3B82F6' }} />
-              <span style={{ color: '#3B82F6', cursor: 'help' }}>Analyzing...</span>
-            </Space>
-          </Tooltip>
-        );
-      }
+      },
     },
     {
-      title: 'Context',
-      key: 'action',
-      render: (_: any, record: any) => (
-        <Button
-          type={selectedDocId === record.id ? 'primary' : 'default'}
-          size="small"
-          icon={selectedDocId === record.id ? <CheckOutlined /> : undefined}
-          disabled={record.status !== 'completed'}
-          onClick={() => selectDocument(record)}
-        >
-          {selectedDocId === record.id ? 'Focused' : 'Set Focus'}
-        </Button>
-      )
-    }
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, record: DocumentItem) => (
+        <Space size="small">
+          <Button
+            type="default"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/documents/${record.id}`)}
+            style={{ background: '#1E293B', borderColor: '#334155', color: '#F8FAFC' }}
+          >
+            Details
+          </Button>
+          <Button
+            type="primary"
+            size="small"
+            icon={<QuestionCircleOutlined />}
+            onClick={() => navigate(`/qa?doc_id=${record.id}`)}
+            style={{ background: '#3B82F6' }}
+          >
+            Ask AI
+          </Button>
+          <Popconfirm
+            title="Delete Document"
+            description="Are you sure you want to delete this document?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button
+              type="text"
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+            />
+          </Popconfirm>
+        </Space>
+      ),
+    },
   ];
 
-  // If there are no companies at all
-  if (companies.length === 0) {
-    return (
-      <div className="animate-fade-in" style={{ padding: 40, maxWidth: 700, margin: '0 auto' }}>
-        <Card className="glass-panel" style={{ textAlign: 'center', padding: '24px 0' }}>
-          <InfoCircleOutlined style={{ fontSize: 64, color: '#3B82F6', marginBottom: 20 }} />
-          <Title level={3}>Welcome to DueDiligence Pro AI! 👋</Title>
-          <Paragraph style={{ color: '#94A3B8', fontSize: 15 }}>
-            To get started, we need to create a company workspace.
-          </Paragraph>
-          <Alert
-            message="👉 Step 1: Onboard a Company"
-            description="Click the '+ Onboard Company' button in the top left header bar to create your first client context (e.g. Apple, Google, or Acme Corp)."
-            type="info"
-            showIcon
-            style={{ textAlign: 'left', margin: '20px 24px' }}
-          />
-        </Card>
-      </div>
-    );
-  }
-
-  // If companies exist but none is selected as active
-  if (!company) {
-    return (
-      <div className="animate-fade-in" style={{ padding: 40, textAlign: 'center' }}>
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={
-            <div style={{ color: '#94A3B8' }}>
-              <Title level={4} style={{ color: '#E2E8F0', marginBottom: 8 }}>Workspace Context Muted</Title>
-              Select an active company from the top bar dropdown menu to load files and scorecards.
-            </div>
-          }
-        />
-      </div>
-    );
-  }
-
-  const hasUnfocusedDoc = documents.length > 0 && !selectedDocId;
-
   return (
-    <div className="animate-fade-in">
-      <div style={{ marginBottom: 24 }}>
-        <Title level={2} style={{ fontFamily: "'Outfit', sans-serif", margin: 0 }}>
-          {company.name} Workspace
-        </Title>
-        <Paragraph style={{ color: '#94A3B8', marginTop: 4, margin: 0 }}>
-          Executive Risk Audit & Venture Analytics Dashboard
-        </Paragraph>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <Title level={3} style={{ color: '#F8FAFC', margin: 0 }}>
+            Document Analytics Dashboard
+          </Title>
+          <Text style={{ color: '#94A3B8' }}>
+            Overview of uploaded due diligence files and AI index status
+          </Text>
+        </div>
+        <Button
+          type="primary"
+          icon={<CloudUploadOutlined />}
+          size="large"
+          onClick={() => navigate('/upload')}
+          style={{ background: '#3B82F6', fontWeight: 600 }}
+        >
+          Upload New Document
+        </Button>
       </div>
 
-      {/* Onboarding Guide Banners */}
-      {documents.length === 0 && (
-        <Alert
-          message="👉 Step 2: Upload Business Files"
-          description="You don't have any files in this workspace yet. Navigate to the 'Upload' page on the left menu to drag-and-drop your PDF or DOCX agreements."
-          type="info"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-      )}
-
-      {hasUnfocusedDoc && (
-        <Alert
-          message="👉 Step 3: Select Active Focus Document"
-          description="To run audits, valuation checks, or ask AI queries, click the 'Set Focus' button on a completed document in the registry below."
-          type="warning"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-      )}
-
-      {/* KPI Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} hoverable className="glass-panel">
-            <Statistic
-              title="Documents Processed"
-              value={kpis?.documents_uploaded || 0}
-              prefix={<FileTextOutlined style={{ color: '#3B82F6', marginRight: 8 }} />}
-            />
+        <Col xs={24} sm={8}>
+          <Card style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8 }}>
+            <Text type="secondary" style={{ color: '#94A3B8' }}>Total Documents</Text>
+            <Title level={2} style={{ color: '#F8FAFC', margin: '8px 0 0 0' }}>
+              {documents.length}
+            </Title>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} hoverable className="glass-panel">
-            <Statistic
-              title="Average Risk Rating"
-              value={kpis?.avg_risk_score || 0}
-              suffix="/ 100"
-              valueStyle={{
-                color: (kpis?.avg_risk_score || 0) > 70 ? '#EF4444' : ((kpis?.avg_risk_score || 0) > 40 ? '#F59E0B' : '#10B981')
-              }}
-              prefix={<AlertOutlined style={{ marginRight: 8 }} />}
-            />
+        <Col xs={24} sm={8}>
+          <Card style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8 }}>
+            <Text type="secondary" style={{ color: '#94A3B8' }}>Indexed & Ready</Text>
+            <Title level={2} style={{ color: '#10B981', margin: '8px 0 0 0' }}>
+              {documents.filter((d) => d.status === 'completed').length}
+            </Title>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} hoverable className="glass-panel">
-            <Statistic
-              title="Avg Investment Score"
-              value={kpis?.avg_investment_score || 0}
-              suffix="/ 100"
-              valueStyle={{
-                color: (kpis?.avg_investment_score || 0) > 75 ? '#10B981' : ((kpis?.avg_investment_score || 0) > 50 ? '#F59E0B' : '#EF4444')
-              }}
-              prefix={<LineChartOutlined style={{ marginRight: 8 }} />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} hoverable className="glass-panel">
-            <Statistic
-              title="Cognitive Queries"
-              value={kpis?.total_ai_queries || 0}
-              prefix={<MessageOutlined style={{ color: '#A855F7', marginRight: 8 }} />}
-            />
+        <Col xs={24} sm={8}>
+          <Card style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8 }}>
+            <Text type="secondary" style={{ color: '#94A3B8' }}>Supported Formats</Text>
+            <Title level={2} style={{ color: '#3B82F6', margin: '8px 0 0 0' }}>
+              PDF / DOCX
+            </Title>
           </Card>
         </Col>
       </Row>
 
-      {/* Chart Trends */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} lg={12}>
-          <Card title="Risk Trend Timeline" bordered={false} className="glass-panel">
-            <div style={{ height: 260 }}>
-              {trends?.risk_trend && trends.risk_trend.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trends.risk_trend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="date" stroke="#94A3B8" />
-                    <YAxis domain={[0, 100]} stroke="#94A3B8" />
-                    <RechartsTooltip
-                      contentStyle={{ backgroundColor: '#111827', borderColor: '#334155', color: '#F8FAFC' }}
-                      labelStyle={{ fontWeight: 'bold' }}
-                    />
-                    <Line type="monotone" dataKey="score" stroke="#EF4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <Empty description="No sufficient completed audit records to map trends." style={{ paddingTop: 40 }} />
-              )}
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="Investment Score Timeline" bordered={false} className="glass-panel">
-            <div style={{ height: 260 }}>
-              {trends?.investment_trend && trends.investment_trend.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trends.investment_trend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="date" stroke="#94A3B8" />
-                    <YAxis domain={[0, 100]} stroke="#94A3B8" />
-                    <RechartsTooltip
-                      contentStyle={{ backgroundColor: '#111827', borderColor: '#334155', color: '#F8FAFC' }}
-                      labelStyle={{ fontWeight: 'bold' }}
-                    />
-                    <Line type="monotone" dataKey="score" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <Empty description="No sufficient completed audit records to map trends." style={{ paddingTop: 40 }} />
-              )}
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Document History Table */}
-      <Card title="Company Document Registry" bordered={false} className="glass-panel">
-        <Table
-          dataSource={documents}
-          columns={columns}
-          rowKey="id"
-          pagination={{ pageSize: 5 }}
-          loading={loading}
-          locale={{ emptyText: <Empty description="No documents uploaded yet. Go to Upload to ingest your first files." /> }}
-        />
+      <Card
+        title={
+          <Text style={{ color: '#F8FAFC', fontWeight: 600, fontSize: 16 }}>
+            Recent Documents
+          </Text>
+        }
+        style={{ background: '#1E293B', borderColor: '#334155', borderRadius: 8 }}
+      >
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Spin size="large" />
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={documents}
+            rowKey="id"
+            pagination={{ pageSize: 5 }}
+            style={{ background: '#1E293B' }}
+          />
+        )}
       </Card>
     </div>
   );

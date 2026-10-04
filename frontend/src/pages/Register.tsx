@@ -1,138 +1,139 @@
 import React, { useState } from 'react';
-import { Card, Typography, Space, Input, Button, message } from 'antd';
-import { Link, useNavigate } from 'react-router-dom';
-import { MailOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons';
-import api from '../api';
+import { Card, Form, Input, Button, Typography, message, Space } from 'antd';
+import { UserOutlined, MailOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../App';
+import api from '../services/api';
 
 const { Title, Text } = Typography;
 
 const Register: React.FC = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const navigate = useNavigate();
+  const { setAuth } = useAuth();
 
   const onFinish = async (values: any) => {
-    // 1. Email validation check
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(values.email)) {
-      return message.warning('Please enter a valid email format with domain (e.g. user@example.com).');
-    }
-
-    // 2. Passwords equality check
-    if (values.password !== values.confirmPassword) {
-      return message.error('Passwords do not match. Please re-enter.');
-    }
-
     setLoading(true);
-    // Show interactive loading message
-    message.loading({ content: 'Creating security profile...', key: 'register_key', duration: 0 });
-
     try {
-      await api.post('/auth/register', {
+      const response = await api.post('/auth/register', {
+        name: values.name,
         email: values.email,
         password: values.password,
-        role: 'analyst'
       });
-      message.success({ content: 'Account registered successfully. Redirecting to login...', key: 'register_key', duration: 3 });
-      navigate('/login');
-    } catch (err: any) {
-      const errMsg = err.response?.data?.detail || 'Registration failed. The email may already exist.';
-      message.error({ content: errMsg, key: 'register_key', duration: 4 });
+
+      const { access_token, user } = response.data;
+      setAuth(access_token, user);
+      message.success('Account created successfully!');
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      const errMsg = error.response?.data?.detail || 'Registration failed. Please try again.';
+      message.error(errMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'radial-gradient(circle at top right, #1E293B 0%, #0F172A 70%)',
-      padding: 16
-    }}>
-      <Card className="glass-panel" style={{ width: 440, border: 'none' }}>
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+        padding: '20px',
+      }}
+    >
+      <Card
+        style={{
+          width: '100%',
+          maxWidth: 420,
+          background: '#1E293B',
+          borderColor: '#334155',
+          borderRadius: 12,
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+        }}
+      >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Space align="center" style={{ marginBottom: 16 }}>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: '#3B82F6',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: 22,
-              fontWeight: 800
-            }}>D</div>
-            <Title level={2} style={{ margin: 0, fontFamily: "'Outfit', sans-serif" }}>Create Account</Title>
+          <Space align="center" style={{ marginBottom: 12 }}>
+            <SafetyCertificateOutlined style={{ fontSize: 36, color: '#3B82F6' }} />
+            <Title level={2} style={{ color: '#F8FAFC', margin: 0, fontWeight: 700 }}>
+              DueDiligence Pro
+            </Title>
           </Space>
-          <br/>
-          <Text style={{ color: '#94A3B8' }}>Join the Risk & Investment Audit Network</Text>
+          <div>
+            <Text type="secondary" style={{ color: '#94A3B8' }}>
+              Create an account to start analyzing documents
+            </Text>
+          </div>
         </div>
 
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          onFinish({ email, password, confirmPassword });
-        }}>
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', color: '#94A3B8', marginBottom: 8, fontSize: 13 }}>Email Address</label>
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              prefix={<MailOutlined style={{ color: '#64748B' }} />}
-              placeholder="analyst@firm.com"
-              type="email"
-              required
-              size="large"
-            />
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', color: '#94A3B8', marginBottom: 8, fontSize: 13 }}>Password</label>
-            <Input.Password
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              prefix={<LockOutlined style={{ color: '#64748B' }} />}
-              placeholder="Min 6 characters"
-              required
-              size="large"
-            />
-          </div>
-
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', color: '#94A3B8', marginBottom: 8, fontSize: 13 }}>Confirm Password</label>
-            <Input.Password
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              prefix={<SafetyOutlined style={{ color: '#64748B' }} />}
-              placeholder="Repeat your password"
-              required
-              size="large"
-            />
-          </div>
-
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            block
-            loading={loading}
-            style={{ height: 46, fontWeight: 600 }}
+        <Form name="register" layout="vertical" onFinish={onFinish} requiredMark={false}>
+          <Form.Item
+            name="name"
+            label={<Text style={{ color: '#E2E8F0' }}>Full Name</Text>}
+            rules={[{ required: true, message: 'Please input your full name!' }]}
           >
-            Create Security Profile
-          </Button>
-        </form>
+            <Input
+              prefix={<UserOutlined style={{ color: '#64748B' }} />}
+              placeholder="John Doe"
+              size="large"
+              style={{ background: '#0F172A', borderColor: '#334155', color: '#F8FAFC' }}
+            />
+          </Form.Item>
 
-        <div style={{ textAlign: 'center', marginTop: 24 }}>
-          <Text style={{ color: '#64748B' }}>
-            Already registered?{' '}
+          <Form.Item
+            name="email"
+            label={<Text style={{ color: '#E2E8F0' }}>Email Address</Text>}
+            rules={[
+              { required: true, message: 'Please input your email!' },
+              { type: 'email', message: 'Please enter a valid email!' },
+            ]}
+          >
+            <Input
+              prefix={<MailOutlined style={{ color: '#64748B' }} />}
+              placeholder="name@company.com"
+              size="large"
+              style={{ background: '#0F172A', borderColor: '#334155', color: '#F8FAFC' }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            label={<Text style={{ color: '#E2E8F0' }}>Password</Text>}
+            rules={[
+              { required: true, message: 'Please input your password!' },
+              { min: 6, message: 'Password must be at least 6 characters!' },
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: '#64748B' }} />}
+              placeholder="Minimum 6 characters"
+              size="large"
+              style={{ background: '#0F172A', borderColor: '#334155', color: '#F8FAFC' }}
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginTop: 24 }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              block
+              loading={loading}
+              style={{ background: '#3B82F6', fontWeight: 600, height: 44 }}
+            >
+              Create Account
+            </Button>
+          </Form.Item>
+        </Form>
+
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <Text style={{ color: '#94A3B8' }}>
+            Already have an account?{' '}
             <Link to="/login" style={{ color: '#3B82F6', fontWeight: 500 }}>
-              Access Account
+              Sign in
             </Link>
           </Text>
         </div>
